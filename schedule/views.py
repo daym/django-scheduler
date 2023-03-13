@@ -530,3 +530,28 @@ def _api_select_create(start, end, calendar_slug):
     response_data = {}
     response_data["status"] = "OK"
     return response_data
+
+@require_POST
+@check_calendar_permissions
+def api_delete(request):
+    response_data = {}
+    id = request.POST.get("id")
+    existed = bool(request.POST.get("existed") == "true")
+    event_id = request.POST.get("event_id")
+    calendar_slug = request.POST.get("calendar_slug")
+    response_data = _api_delete(id, existed, event_id, calendar_slug)
+    return JsonResponse(response_data)
+
+def _api_delete(id, existed, event_id, calendar_slug):
+    #calendar = Calendar.objects.get(slug=calendar_slug)
+    if existed:
+        occurrence = Occurrence.objects.get(id=id)
+        occurrence.delete()
+    else:
+        event = Event.objects.get(id=event_id)
+        for occurrence in event.occurrence_set.all():
+            occurrence.delete()
+
+    response_data = {}
+    response_data["status"] = "OK"
+    return response_data

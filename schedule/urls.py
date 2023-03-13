@@ -20,6 +20,7 @@ from schedule.views import (
     api_move_or_resize_by_code,
     api_occurrences,
     api_select_create,
+    api_delete,
 )
 
 urlpatterns = [
@@ -134,5 +135,6 @@ urlpatterns = [
         r"^api/move_or_resize/$", api_move_or_resize_by_code, name="api_move_or_resize"
     ),
     re_path(r"^api/select_create/$", api_select_create, name="api_select_create"),
+    re_path(r"^api/delete/$", api_delete, name="api_delete"),
     re_path(r"^$", ListView.as_view(queryset=Calendar.objects.all()), name="schedule"),
 ]
