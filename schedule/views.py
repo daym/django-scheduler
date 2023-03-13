@@ -555,3 +555,37 @@ def _api_delete(id, existed, event_id, calendar_slug):
     response_data = {}
     response_data["status"] = "OK"
     return response_data
+
+@require_POST
+@check_calendar_permissions
+def api_set_props(request):
+    response_data = {}
+    id = request.POST.get("id")
+    existed = bool(request.POST.get("existed") == "true")
+    event_id = request.POST.get("event_id")
+    calendar_slug = request.POST.get("calendar_slug")
+    response_data = _api_set_props(id, existed, event_id, calendar_slug, dict([(key[len("prop_"):], value) for key, value in request.POST.items() if key.startswith("prop_")]))
+    return JsonResponse(response_data)
+
+def _api_set_props(id, existed, event_id, calendar_slug, properties):
+    #calendar = Calendar.objects.get(slug=calendar_slug)
+    if existed:
+        occurrence = Occurrence.objects.get(id=id)
+        if "title" in properties:
+            occurence.title = properties["title"]
+            occurence.save()
+    else:
+        event = Event.objects.get(id=event_id)
+        if "title" in properties:
+            event.title = properties["title"]
+            import sys
+            print('set title', event.title, file=sys.stderr)
+            event.save()
+        for occurrence in event.occurrence_set.all():
+            if "title" in properties:
+                occurence.title = properties["title"]
+                occurence.save()
+
+    response_data = {}
+    response_data["status"] = "OK"
+    return response_data
