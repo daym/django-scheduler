@@ -523,12 +523,13 @@ def _api_select_create(start, end, calendar_slug):
     end = dateutil.parser.parse(end)
 
     calendar = Calendar.objects.get(slug=calendar_slug)
-    Event.objects.create(
+    event = Event.objects.create(
         start=start, end=end, title=EVENT_NAME_PLACEHOLDER, calendar=calendar
     )
 
     response_data = {}
     response_data["status"] = "OK"
+    response_data["event_id"] = event.id
     return response_data
 
 @require_POST
