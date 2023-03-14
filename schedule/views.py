@@ -551,6 +551,7 @@ def _api_delete(id, existed, event_id, calendar_slug):
         event = Event.objects.get(id=event_id)
         for occurrence in event.occurrence_set.all():
             occurrence.delete()
+        event.delete()
 
     response_data = {}
     response_data["status"] = "OK"
