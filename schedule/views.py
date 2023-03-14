@@ -522,6 +522,7 @@ def api_select_create(request):
 def _api_select_create(start, end, calendar_slug, title):
     start = dateutil.parser.parse(start)
     end = dateutil.parser.parse(end)
+    assert start < end
 
     calendar = Calendar.objects.get(slug=calendar_slug)
     event = Event.objects.create(
