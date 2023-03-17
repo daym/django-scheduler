@@ -579,11 +579,16 @@ def _api_set_props(id, existed, event_id, calendar_slug, properties):
     if existed:
         occurrence = Occurrence.objects.get(id=id)
         if "title" in properties:
-            occurence.title = properties["title"]
-            occurence.save()
+            occurrence.title = properties["title"]
+            occurrence.save()
         if "color" in properties:
-            occurence.event.color_event = properties["color"] or ""
-            occurence.event.save()
+            occurrence.event.color_event = properties["color"] or ""
+            occurrence.event.save()
+        if "description" in properties:
+            occurrence.description = properties["description"] or ""
+            occurrence.save()
+            occurrence.event.description = properties["description"] or ""
+            occurrence.event.save()
     else:
         event = Event.objects.get(id=event_id)
         if "title" in properties:
@@ -594,10 +599,16 @@ def _api_set_props(id, existed, event_id, calendar_slug, properties):
         if "color" in properties:
             event.color_event = properties["color"] or ""
             event.save()
+        if "description" in properties:
+            event.description = properties["description"] or ""
+            event.save()
         for occurrence in event.occurrence_set.all():
             if "title" in properties:
-                occurence.title = properties["title"]
-                occurence.save()
+                occurrence.title = properties["title"]
+                occurrence.save()
+            if "description" in properties:
+                occurrence.description = properties["description"]
+                occurrence.save()
 
     response_data = {}
     response_data["status"] = "OK"
