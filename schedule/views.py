@@ -452,6 +452,7 @@ def _api_occurrences(start, end, calendar_slug, timezone):
                     "creator": str(occurrence.event.creator),
                     "calendar": occurrence.event.calendar.slug,
                     "cancelled": occurrence.cancelled,
+                    "allDay": True,
                 }
             )
     return response_data
@@ -513,20 +514,21 @@ def api_select_create(request):
     end = request.POST.get("end")
     calendar_slug = request.POST.get("calendar_slug")
     title = request.POST.get("title")
+    color = request.POST.get("color")
 
-    response_data = _api_select_create(start, end, calendar_slug, title)
+    response_data = _api_select_create(start, end, calendar_slug, title, color)
 
     return JsonResponse(response_data)
 
 
-def _api_select_create(start, end, calendar_slug, title):
+def _api_select_create(start, end, calendar_slug, title, color):
     start = dateutil.parser.parse(start)
     end = dateutil.parser.parse(end)
     assert start < end
 
     calendar = Calendar.objects.get(slug=calendar_slug)
     event = Event.objects.create(
-        start=start, end=end, title=title or EVENT_NAME_PLACEHOLDER, calendar=calendar
+        start=start, end=end, title=title or EVENT_NAME_PLACEHOLDER, calendar=calendar, color_event=color or ""
     )
 
     response_data = {}
@@ -578,12 +580,18 @@ def _api_set_props(id, existed, event_id, calendar_slug, properties):
         if "title" in properties:
             occurence.title = properties["title"]
             occurence.save()
+        if "color" in properties:
+            occurence.event.color_event = properties["color"] or ""
+            occurence.event.save()
     else:
         event = Event.objects.get(id=event_id)
         if "title" in properties:
             event.title = properties["title"]
             import sys
             print('set title', event.title, file=sys.stderr)
+            event.save()
+        if "color" in properties:
+            event.color_event = properties["color"] or ""
             event.save()
         for occurrence in event.occurrence_set.all():
             if "title" in properties:
