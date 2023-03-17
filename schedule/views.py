@@ -437,6 +437,7 @@ def _api_occurrences(start, end, calendar_slug, timezone):
             if occurrence.cancelled:
                 # fixes bug 508
                 continue
+            allDay = (event_end - event_start).days == 1
             response_data.append(
                 {
                     "id": occurrence_id,
@@ -452,7 +453,7 @@ def _api_occurrences(start, end, calendar_slug, timezone):
                     "creator": str(occurrence.event.creator),
                     "calendar": occurrence.event.calendar.slug,
                     "cancelled": occurrence.cancelled,
-                    "allDay": True,
+                    "allDay": allDay,
                 }
             )
     return response_data
