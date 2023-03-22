@@ -595,8 +595,6 @@ def _api_set_props(id, existed, event_id, calendar_slug, properties):
         event = Event.objects.get(id=event_id)
         if "title" in properties:
             event.title = properties["title"]
-            import sys
-            print('set title', event.title, file=sys.stderr)
             event.save()
         if "color" in properties:
             event.color_event = properties["color"] or ""
