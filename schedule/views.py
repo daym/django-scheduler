@@ -518,18 +518,19 @@ def api_select_create(request):
     color = request.POST.get("color")
     description = request.POST.get("description")
 
-    response_data = _api_select_create(start, end, calendar_slug, title, color, description)
+    response_data = _api_select_create(start, end, calendar_slug, title, color, description, request.user)
 
     return JsonResponse(response_data)
 
 
-def _api_select_create(start, end, calendar_slug, title, color, description):
+def _api_select_create(start, end, calendar_slug, title, color, description, creator):
     start = dateutil.parser.parse(start)
     end = dateutil.parser.parse(end)
     assert start < end
 
     calendar = Calendar.objects.get(slug=calendar_slug)
     event = Event.objects.create(
+        creator=creator,
         start=start, end=end, title=title or EVENT_NAME_PLACEHOLDER, calendar=calendar, color_event=color or "", description=description or ""
     )
 
