@@ -71,8 +71,15 @@ class EventAdmin(admin.ModelAdmin):
 
 admin.site.register(Occurrence, admin.ModelAdmin)
 
+# https://stackoverflow.com/questions/8007095/dynamic-fields-in-django-admin
+# https://pypi.org/project/django-dynamic-admin-forms/ !! doesn't work in django 4
+# XX https://django-constance.readthedocs.io/en/latest/
+
 @admin.register(Rule)
 class RuleAdmin(admin.ModelAdmin):
     list_display = ("name",)
     list_filter = ("frequency",)
     search_fields = ("name", "description")
+    fields = ("name", "description", "frequency", "repeats", "params")
+    #form = RuleForm
+    filter_horizontal = ['repeats']
