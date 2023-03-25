@@ -214,6 +214,8 @@ class EditEventView(EventEditMixin, UpdateView):
             original_start=F("original_start") + dts,
             original_end=F("original_end") + dte,
         )
+        event.updater = self.request.user
+        event.updated_on = datetime.datetime.utcnow()
         event.save()
         return super().form_valid(form)
 
@@ -493,11 +495,13 @@ def _api_move_or_resize_by_code(user, id, existed, delta, resize, event_id):
         event = Event.objects.get(id=event_id)
         dts = 0
         dte = delta
-        if not resize:
-            event.start += delta
-            dts = delta
-        event.end = event.end + delta
         if CHECK_EVENT_PERM_FUNC(event, user):
+            if not resize:
+                event.start += delta
+                dts = delta
+            event.end = event.end + delta
+            event.updater = user
+            event.updated_on = datetime.datetime.utcnow()
             event.save()
             event.occurrence_set.all().update(
                 original_start=F("original_start") + dts,
@@ -522,19 +526,18 @@ def api_select_create(request):
 
     return JsonResponse(response_data)
 
-
 def _api_select_create(start, end, calendar_slug, title, color, description, creator):
     start = dateutil.parser.parse(start)
     end = dateutil.parser.parse(end)
     assert start < end
 
     calendar = Calendar.objects.get(slug=calendar_slug)
+    response_data = {}
+    response_data["status"] = "PERMISSION DENIED"
     event = Event.objects.create(
         creator=creator,
         start=start, end=end, title=title or EVENT_NAME_PLACEHOLDER, calendar=calendar, color_event=color or "", description=description or ""
     )
-
-    response_data = {}
     response_data["status"] = "OK"
     response_data["event_id"] = event.id
     return response_data
@@ -547,22 +550,26 @@ def api_delete(request):
     existed = bool(request.POST.get("existed") == "true")
     event_id = request.POST.get("event_id")
     calendar_slug = request.POST.get("calendar_slug")
-    response_data = _api_delete(id, existed, event_id, calendar_slug)
+    response_data = _api_delete(id, existed, event_id, calendar_slug, request.user)
     return JsonResponse(response_data)
 
-def _api_delete(id, existed, event_id, calendar_slug):
+def _api_delete(id, existed, event_id, calendar_slug, user):
+    response_data = {}
+    response_data["status"] = "PERMISSION DENIED"
     #calendar = Calendar.objects.get(slug=calendar_slug)
     if existed:
         occurrence = Occurrence.objects.get(id=id)
-        occurrence.delete()
+        if CHECK_EVENT_PERM_FUNC(occurrence.event, user):
+            occurrence.delete()
+            response_data["status"] = "OK"
     else:
         event = Event.objects.get(id=event_id)
-        for occurrence in event.occurrence_set.all():
-            occurrence.delete()
-        event.delete()
+        if CHECK_EVENT_PERM_FUNC(event, user):
+            for occurrence in event.occurrence_set.all():
+                occurrence.delete()
+            event.delete()
+            response_data["status"] = "OK"
 
-    response_data = {}
-    response_data["status"] = "OK"
     return response_data
 
 @require_POST
@@ -573,34 +580,53 @@ def api_set_props(request):
     existed = bool(request.POST.get("existed") == "true")
     event_id = request.POST.get("event_id")
     calendar_slug = request.POST.get("calendar_slug")
-    response_data = _api_set_props(id, existed, event_id, calendar_slug, dict([(key[len("prop_"):], value) for key, value in request.POST.items() if key.startswith("prop_")]))
+    response_data = _api_set_props(id, existed, event_id, calendar_slug, dict([(key[len("prop_"):], value) for key, value in request.POST.items() if key.startswith("prop_")]), request.user)
     return JsonResponse(response_data)
 
-def _api_set_props(id, existed, event_id, calendar_slug, properties):
+def _api_set_props(id, existed, event_id, calendar_slug, properties, updater):
     #calendar = Calendar.objects.get(slug=calendar_slug)
+    response_data = {}
+    response_data["status"] = "PERMISSION DENIED"
+
     if existed:
         occurrence = Occurrence.objects.get(id=id)
+        event = occurrence.event
+        if not CHECK_EVENT_PERM_FUNC(event, updater):
+            return response_data
+
         if "title" in properties:
             occurrence.title = properties["title"]
             occurrence.save()
         if "color" in properties:
             occurrence.event.color_event = properties["color"] or ""
+            occurrence.event.updater = updater
+            occurrence.event.updated_on = datetime.datetime.utcnow()
             occurrence.event.save()
         if "description" in properties:
             occurrence.description = properties["description"] or ""
             occurrence.save()
-            occurrence.event.description = properties["description"] or ""
-            occurrence.event.save()
+            event.description = properties["description"] or ""
+            event.updater = updater
+            event.updated_on = datetime.datetime.utcnow()
+            event.save()
     else:
         event = Event.objects.get(id=event_id)
+        if not CHECK_EVENT_PERM_FUNC(event, updater):
+            return response_data
         if "title" in properties:
             event.title = properties["title"]
+            event.updater = updater
+            event.updated_on = datetime.datetime.utcnow()
             event.save()
         if "color" in properties:
             event.color_event = properties["color"] or ""
+            event.updater = updater
+            event.updated_on = datetime.datetime.utcnow()
             event.save()
         if "description" in properties:
             event.description = properties["description"] or ""
+            event.updater = updater
+            event.updated_on = datetime.datetime.utcnow()
             event.save()
         for occurrence in event.occurrence_set.all():
             if "title" in properties:
@@ -610,6 +636,5 @@ def _api_set_props(id, existed, event_id, calendar_slug, properties):
                 occurrence.description = properties["description"]
                 occurrence.save()
 
-    response_data = {}
     response_data["status"] = "OK"
     return response_data
