@@ -140,6 +140,7 @@ class Calendar(models.Model):
 
     name = models.CharField(_("name"), max_length=200)
     slug = models.SlugField(_("slug"), max_length=200, unique=True)
+    color_event = models.CharField(_("Color event"), blank=True, null=True, max_length=10, unique=True, db_index=True)
     objects = CalendarManager()
 
     class Meta:

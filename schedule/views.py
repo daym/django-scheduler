@@ -460,6 +460,17 @@ def _api_occurrences(start, end, calendar_slug, timezone):
             )
     return response_data
 
+@check_calendar_permissions
+def api_calendars(request):
+    calendars = Calendar.objects.all()
+    return JsonResponse({
+        "status": "OK",
+        "calendars": [{
+            "name": calendar.name,
+            "slug": calendar.slug,
+            "color_event": calendar.color_event,
+        } for calendar in calendars],
+    })
 
 @require_POST
 @check_calendar_permissions
