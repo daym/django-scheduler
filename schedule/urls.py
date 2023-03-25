@@ -23,6 +23,7 @@ from schedule.views import (
     api_delete,
     api_set_props,
     api_calendars,
+    api_ruleparams,
 )
 
 urlpatterns = [
@@ -140,5 +141,6 @@ urlpatterns = [
     re_path(r"^api/delete/$", api_delete, name="api_delete"),
     re_path(r"^api/set_props/$", api_set_props, name="api_set_props"),
     re_path(r"^api/calendars/$", api_calendars, name="api_calendars"),
+    re_path(r"^api/ruleparams/$", api_ruleparams, name="api_ruleparams"),
     re_path(r"^$", ListView.as_view(queryset=Calendar.objects.all()), name="schedule"),
 ]

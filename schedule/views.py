@@ -33,7 +33,7 @@ from django.views.generic.edit import (
 )
 
 from schedule.forms import EventForm, OccurrenceForm
-from schedule.models import Calendar, Event, Occurrence
+from schedule.models import Calendar, Event, Occurrence, RuleParam
 from schedule.periods import weekday_names
 from schedule.settings import (
     CHECK_EVENT_PERM_FUNC,
@@ -649,3 +649,22 @@ def _api_set_props(id, existed, event_id, calendar_slug, properties, updater):
 
     response_data["status"] = "OK"
     return response_data
+
+@check_calendar_permissions
+def api_ruleparams(request):
+    ruleparams = RuleParam.objects.all()
+    return JsonResponse({
+        "status": "OK",
+        "ruleparams": [{
+            "id": ruleparam.id,
+            "name": ruleparam.name,
+            "display_string": ruleparam.display_string,
+            "variants": [
+                {
+                     "id": ruleparamvariant.id,
+                     "value_display_string": ruleparamvariant.value_display_string,
+                     "value": ruleparamvariant.value,
+                } for ruleparamvariant in ruleparam.variant_set.all() # TOOD order by
+            ],
+        } for ruleparam in ruleparams],
+    })
