@@ -146,6 +146,7 @@ class Calendar(models.Model):
     class Meta:
         verbose_name = _("calendar")
         verbose_name_plural = _("calendars")
+        ordering = ['name']
 
     def __str__(self):
         return self.name
