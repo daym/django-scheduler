@@ -464,12 +464,8 @@ def _api_occurrences(start, end, calendar_slug, timezone):
                     "allDay": allDay,
                     "groupId": occurrence.event.id,
                     "recurrence_frequency": occurrence.event.rule.frequency if occurrence.event.rule is not None else None,
-                    "recurrence_repeats": [
-                         {
-                             "name": repeat.param.name,
-                             "value": repeat.value,
-                         } for repeat in occurrence.event.rule.repeats.all()
-                    ] if occurrence.event.rule is not None else None,
+                    "recurrence_repeats": compress_repeats([(repeat.param.name, repeat.value) for repeat in occurrence.event.rule.repeats.all()
+                    ]) if occurrence.event.rule is not None else None,
                 }
             )
     return response_data
@@ -549,6 +545,15 @@ def decode_recurrence_params(data):
             values = map(int, values.split(","))
             for value in values:
                 recurrence[key].append(value)
+    return recurrence
+
+def compress_repeats(repeats):
+    """ Given REPEATS, a list like [("bymonthday", 1), ("bymonthday", 2)] returns {"bymonthday": [1,2]} """
+    recurrence = {}
+    for name, value in repeats:
+        if name not in recurrence:
+            recurrence[name] = []
+        recurrence[name].append(value)
     return recurrence
 
 @drfize
