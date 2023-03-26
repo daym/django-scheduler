@@ -85,7 +85,7 @@ class Rule(models.Model):
         ** byeaster
     """
 
-    name = models.CharField(_("name"), max_length=32, unique=True)
+    name = models.CharField(_("name"), max_length=255, unique=True)
     description = models.TextField(_("description"))
     frequency = models.CharField(_("frequency"), choices=freqs, max_length=10)
     repeats = models.ManyToManyField(RuleParamVariant)
