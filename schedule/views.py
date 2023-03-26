@@ -463,6 +463,13 @@ def _api_occurrences(start, end, calendar_slug, timezone):
                     "cancelled": occurrence.cancelled,
                     "allDay": allDay,
                     "groupId": occurrence.event.id,
+                    "recurrence_frequency": occurrence.event.rule.frequency if occurrence.event.rule is not None else None,
+                    "recurrence_repeats": [
+                         {
+                             "name": repeat.param.name,
+                             "value": repeat.value,
+                         } for repeat in occurrence.event.rule.repeats.all()
+                    ] if occurrence.event.rule is not None else None,
                 }
             )
     return response_data
