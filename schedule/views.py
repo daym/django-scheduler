@@ -540,6 +540,8 @@ def decode_recurrence_params(data):
         print("KV", key, values)
         if key.startswith("recurrence_by"):
             key = key[len("recurrence_"):]
+            if values == "":
+                continue
             if key not in recurrence:
                 recurrence[key] = []
             values = map(int, values.split(","))
@@ -689,6 +691,16 @@ def _api_set_props(id, existed, event_id, calendar_slug, properties, updater):
                 occurrence.description = properties["description"]
                 occurrence.save()
 
+    if any(key for key in properties.keys() if key.startswith("recurrence_")):
+        recurrence_frequency = properties.get("recurrence_frequency")
+        assert recurrence_frequency
+        recurrence_end_recurring_period = properties.get("recurrence_end_recurring_period") or None
+        recurrence = decode_recurrence_params(properties)
+        print("SET_PROPS RECURRENCE SETTINGS", recurrence_frequency, recurrence_end_recurring_period, recurrence)
+        rule = Rule.ensure_rule(frequency=recurrence_frequency, by_details=recurrence)
+        print("RULE", rule)
+        # FIXME: Recreate the recurrence ! What about the weird caching business ?
+        pass
     response_data["status"] = "OK"
     return response_data
 
