@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from schedule.forms import EventAdminForm, RuleForm
+from schedule.forms import EventAdminForm
 from schedule.models import (
     Calendar,
     CalendarRelation,
