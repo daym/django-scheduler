@@ -2,7 +2,7 @@
 
 from django.db import migrations, models
 import django.db.models.deletion
-#from django.utils.translation import gettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 
 def insert_initial_records(apps, schema_editor):
         RuleParam = apps.get_model('schedule', 'RuleParam')
