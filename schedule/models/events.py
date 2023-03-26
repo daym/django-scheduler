@@ -43,6 +43,10 @@ class EventManager(models.Manager):
             content_object, distinction, inherit
         )
 
+def localize(dt, tzinfo):
+    """ Note: Assumes that the datetime point is already correct for TZINFO """
+    assert dt.tzinfo is None
+    return dt.replace(tzinfo=tzinfo)
 
 class Event(models.Model):
     """
@@ -50,6 +54,10 @@ class Event(models.Model):
     other models.
     """
 
+    # This is the timezone the event was created in. It's necessary to know that in order to have recurrent events work how humans expect them to work.
+    # The timezone name should be usable with pytz.
+    # Whatever value TIMEZONE has, START is still stored as UTC.
+    timezone = models.CharField(_("time zone"), default='Europe/Vienna', max_length=40)
     start = models.DateTimeField(_("start"), db_index=True)
     end = models.DateTimeField(
         _("end"),
@@ -124,6 +132,29 @@ class Event(models.Model):
     def get_absolute_url(self):
         return reverse("event", args=[self.id])
 
+    @property
+    def pytz(self):
+        return pytz.timezone(self.timezone)
+
+    def get_rrule_object(self):
+        """ Humans expect recurrent occurences to always start at the same LOCAL time, so we need to know what that local time is. """
+        if self.rule is None:
+            return
+        tzinfo = self.pytz
+        params = self._event_params()
+        frequency = self.rule.rrule_frequency()
+        # Make dtstart naive AND local
+        dtstart = self.start.astimezone(tzinfo).replace(tzinfo=None)
+
+        if self.end_recurring_period is None:
+            until = None
+        elif timezone.is_naive(self.end_recurring_period): # not sure we need that, but whatever
+            until = self.end_recurring_period
+        else:
+            until = self.end_recurring_period.astimezone(tzinfo).replace(tzinfo=None) # also naive and local
+
+        return rrule.rrule(frequency, dtstart=dtstart, until=until, **params)
+
     def get_occurrences(self, start, end, clear_prefetch=True):
         """
         >>> rule = Rule(frequency = "MONTHLY", name = "Monthly")
@@ -187,25 +218,6 @@ class Event(models.Model):
         final_occurrences += occ_replacer.get_additional_occurrences(start, end)
         return final_occurrences
 
-    def get_rrule_object(self, tzinfo):
-        if self.rule is None:
-            return
-        params = self._event_params()
-        frequency = self.rule.rrule_frequency()
-        if timezone.is_naive(self.start):
-            dtstart = self.start
-        else:
-            dtstart = self.start.astimezone(tzinfo).replace(tzinfo=None)
-
-        if self.end_recurring_period is None:
-            until = None
-        elif timezone.is_naive(self.end_recurring_period):
-            until = self.end_recurring_period
-        else:
-            until = self.end_recurring_period.astimezone(tzinfo).replace(tzinfo=None)
-
-        return rrule.rrule(frequency, dtstart=dtstart, until=until, **params)
-
     def _create_occurrence(self, start, end=None):
         if end is None:
             end = start + (self.end - self.start)
@@ -220,12 +232,13 @@ class Event(models.Model):
             date = timezone.make_aware(date, tzinfo)
         if date.tzinfo:
             tzinfo = date.tzinfo
-        rule = self.get_rrule_object(tzinfo)
+        assert self.pytz == tzinfo
+        rule = self.get_rrule_object()
         if rule:
             next_occurrence = rule.after(
                 date.astimezone(tzinfo).replace(tzinfo=None), inc=True
             )
-            next_occurrence = pytz.timezone(str(tzinfo)).localize(next_occurrence)
+            next_occurrence = localize(next_occurrence, tzinfo)
         else:
             next_occurrence = self.start
         if next_occurrence == date:
@@ -245,20 +258,17 @@ class Event(models.Model):
             duration = self.end - self.start
             use_naive = timezone.is_naive(start)
 
-            # Use the timezone from the start date
-            tzinfo = datetime.timezone.utc
-            if start.tzinfo:
-                tzinfo = start.tzinfo
+            tzinfo = self.pytz
 
             # Limit timespan to recurring period
             occurrences = []
             if self.end_recurring_period and self.end_recurring_period < end:
                 end = self.end_recurring_period
 
-            start_rule = self.get_rrule_object(tzinfo)
-            start = start.replace(tzinfo=None)
+            start_rule = self.get_rrule_object()
+            start = start.replace(tzinfo=None) # makes it naive
             if timezone.is_aware(end):
-                end = end.astimezone(tzinfo).replace(tzinfo=None)
+                end = end.astimezone(tzinfo).replace(tzinfo=None) # move end to the same timezone as start, make it naive
 
             o_starts = []
 
@@ -279,7 +289,7 @@ class Event(models.Model):
 
             # Create the Occurrence objects for the found start dates
             for o_start in o_starts:
-                o_start = pytz.timezone(str(tzinfo)).localize(o_start)
+                o_start = localize(o_start, tzinfo)
                 if use_naive:
                     o_start = timezone.make_naive(o_start, tzinfo)
                 o_end = o_start + duration
@@ -306,7 +316,8 @@ class Event(models.Model):
             after = timezone.now()
         elif not timezone.is_naive(after):
             tzinfo = after.tzinfo
-        rule = self.get_rrule_object(tzinfo)
+        assert tzinfo == self.pytz
+        rule = self.get_rrule_object()
         if rule is None:
             if self.end > after:
                 yield self._create_occurrence(self.start, self.end)
@@ -315,7 +326,7 @@ class Event(models.Model):
         difference = self.end - self.start
         loop_counter = 0
         for o_start in date_iter:
-            o_start = pytz.timezone(str(tzinfo)).localize(o_start)
+            o_start = localize(o_start, tzinfo)
             o_end = o_start + difference
             if o_end > after:
                 yield self._create_occurrence(o_start, o_end)
@@ -346,7 +357,7 @@ class Event(models.Model):
 
     @property
     def event_start_params(self):
-        start = self.start
+        start = self.start.astimezone(self.pytz)
         params = {
             "byyearday": start.timetuple().tm_yday,
             "bymonth": start.month,
@@ -364,6 +375,9 @@ class Event(models.Model):
         return self.rule.get_params()
 
     def _event_params(self):
+        """
+        Use self.event_rule_params (this is what the rule says) and self.event_start_params (this is what can be derived from "start")
+        """
         freq_order = freq_dict_order[self.rule.frequency]
         rule_params = self.event_rule_params
         start_params = self.event_start_params
@@ -372,20 +386,20 @@ class Event(models.Model):
         if len(rule_params) == 0:
             return event_params
 
-        for param in rule_params:
+        for param in rule_params: # byyearday, bymonthday, ...
             # start date influences rule params
             if (
-                param in param_dict_order
-                and param_dict_order[param] > freq_order
-                and param in start_params
+                param in param_dict_order # byweekno etc
+                and param_dict_order[param] > freq_order # that this parameter makes sense to use with this frequency
+                and param in start_params # and we have one derived from "start"
             ):
-                sp = start_params[param]
+                sp = start_params[param] # the one derived from "start"
                 if sp == rule_params[param] or (
                     hasattr(rule_params[param], "__iter__") and sp in rule_params[param]
-                ):
-                    event_params[param] = [sp]
+                ): # the start is part of the useful ones
+                    event_params[param] = [sp] # Accept ONE of our start param values
                 else:
-                    event_params[param] = rule_params[param]
+                    event_params[param] = rule_params[param] # accept the rule's ones
             else:
                 event_params[param] = rule_params[param]
 
