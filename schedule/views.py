@@ -347,7 +347,6 @@ def api_occurrences(request):
 
     return JsonResponse(response_data, safe=False)
 
-
 def _api_occurrences(start, end, calendar_slug, timezone):
 
     if not start or not end:
@@ -483,6 +482,8 @@ def api_move_or_resize_by_code(request):
 
 
 def _api_move_or_resize_by_code(user, id, existed, delta, resize, event_id):
+    import sys
+    print(user, id, existed, delta, resize, event_id, file=sys.stderr)
     response_data = {}
     response_data["status"] = "PERMISSION DENIED"
 
@@ -496,15 +497,15 @@ def _api_move_or_resize_by_code(user, id, existed, delta, resize, event_id):
             response_data["status"] = "OK"
     else:
         event = Event.objects.get(id=event_id)
-        dts = 0
+        dts = datetime.timedelta(minutes=0)
         dte = delta
+        if not resize:
+            event.start += delta
+            dts = delta
+        event.end = event.end + delta
         if CHECK_EVENT_PERM_FUNC(event, user):
-            if not resize:
-                event.start += delta
-                dts = delta
-            event.end = event.end + delta
-            event.updater = user
-            event.updated_on = datetime.datetime.utcnow()
+            import sys
+            print('save', file=sys.stderr)
             event.save()
             event.occurrence_set.all().update(
                 original_start=F("original_start") + dts,
