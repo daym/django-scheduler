@@ -33,7 +33,7 @@ from django.views.generic.edit import (
 )
 
 from schedule.forms import EventForm, OccurrenceForm
-from schedule.models import Calendar, Event, Occurrence, RuleParam
+from schedule.models import Calendar, Event, Occurrence, RuleParam, Rule
 from schedule.periods import weekday_names
 from schedule.settings import (
     CHECK_EVENT_PERM_FUNC,
@@ -353,20 +353,11 @@ def _api_occurrences(start, end, calendar_slug, timezone):
     if not start or not end:
         raise ValueError("Start and end parameters are required")
     # version 2 of full calendar
-    # TODO: improve this code with date util package
-    if "-" in start:
-
+    if "-" in start: # string representation
         def convert(ddatetime):
             if ddatetime:
-                ddatetime = ddatetime.split(" ")[0]
-                try:
-                    return datetime.datetime.strptime(ddatetime, "%Y-%m-%d")
-                except ValueError:
-                    # try a different date string format first before failing
-                    return datetime.datetime.strptime(ddatetime, "%Y-%m-%dT%H:%M:%S")
-
-    else:
-
+                return dateutil.parser.parse(ddatetime)
+    else: # float timestamp
         def convert(ddatetime):
             return datetime.datetime.utcfromtimestamp(float(ddatetime))
 
@@ -381,8 +372,8 @@ def _api_occurrences(start, end, calendar_slug, timezone):
     elif settings.USE_TZ:
         # If USE_TZ is True, make start and end dates aware in UTC timezone
         utc = pytz.UTC
-        start = utc.localize(start)
-        end = utc.localize(end)
+        start = start.astimezone(utc)
+        end = end.astimezone(utc)
 
     if calendar_slug:
         # will raise DoesNotExist exception if no match
@@ -456,6 +447,7 @@ def _api_occurrences(start, end, calendar_slug, timezone):
                     "calendar": occurrence.event.calendar.slug,
                     "cancelled": occurrence.cancelled,
                     "allDay": allDay,
+                    "groupId": occurrence.event.id,
                 }
             )
     return response_data
@@ -521,6 +513,18 @@ def _api_move_or_resize_by_code(user, id, existed, delta, resize, event_id):
             response_data["status"] = "OK"
     return response_data
 
+def decode_recurrence_params(data):
+    recurrence = {}
+    for key, values in data.items():
+        print("KV", key, values)
+        if key.startswith("recurrence_by"):
+            key = key[len("recurrence_"):]
+            if key not in recurrence:
+                recurrence[key] = []
+            values = map(int, values.split(","))
+            for value in values:
+                recurrence[key].append(value)
+    return recurrence
 
 @require_POST
 @check_calendar_permissions
@@ -532,12 +536,15 @@ def api_select_create(request):
     title = request.POST.get("title")
     color = request.POST.get("color")
     description = request.POST.get("description")
+    recurrence_frequency = request.POST.get("recurrence_frequency")
+    recurrence = decode_recurrence_params(request.POST)
 
-    response_data = _api_select_create(start, end, calendar_slug, title, color, description, request.user)
+    print("RECURRENCE", recurrence)
+    response_data = _api_select_create(start, end, calendar_slug, title, color, description, request.user, recurrence_frequency, recurrence)
 
     return JsonResponse(response_data)
 
-def _api_select_create(start, end, calendar_slug, title, color, description, creator):
+def _api_select_create(start, end, calendar_slug, title, color, description, creator, recurrence_frequency, recurrence):
     start = dateutil.parser.parse(start)
     end = dateutil.parser.parse(end)
     assert start < end
@@ -545,9 +552,11 @@ def _api_select_create(start, end, calendar_slug, title, color, description, cre
     calendar = Calendar.objects.get(slug=calendar_slug)
     response_data = {}
     response_data["status"] = "PERMISSION DENIED"
+    rule = Rule.ensure_rule(frequency=recurrence_frequency, by_details=recurrence) if recurrence_frequency else None
     event = Event.objects.create(
         creator=creator,
-        start=start, end=end, title=title or EVENT_NAME_PLACEHOLDER, calendar=calendar, color_event=color or "", description=description or ""
+        start=start, end=end, title=title or EVENT_NAME_PLACEHOLDER, calendar=calendar, color_event=color or "", description=description or "",
+        rule=rule
     )
     response_data["status"] = "OK"
     response_data["event_id"] = event.id
