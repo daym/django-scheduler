@@ -332,6 +332,22 @@ def get_next_url(request, default):
         next_url = _next_url
     return next_url
 
+def drfize(f):
+    """ Given F, wrap it in a rest framework API, require authentication and requires POST """
+    from rest_framework.permissions import IsAuthenticated
+    from rest_framework import authentication
+    from rest_framework.decorators import api_view, permission_classes
+    from django.views.decorators.csrf import csrf_exempt
+    #from schedule.models import Calendar, Event, Occurrence
+
+    @api_view(['POST'])
+    @permission_classes([IsAuthenticated])
+    @csrf_exempt
+    def g(*args, **kwargs):
+        # TODO: @check_calendar_permissions ?
+        return f(*args, **kwargs)
+    #g.queryset = Event.objects.all()
+    return g
 
 @check_calendar_permissions
 def api_occurrences(request):
@@ -463,6 +479,7 @@ def api_calendars(request):
         } for calendar in calendars],
     })
 
+@drfize
 @require_POST
 @check_calendar_permissions
 def api_move_or_resize_by_code(request):
@@ -527,6 +544,7 @@ def decode_recurrence_params(data):
                 recurrence[key].append(value)
     return recurrence
 
+@drfize
 @require_POST
 @check_calendar_permissions
 def api_select_create(request):
@@ -563,6 +581,7 @@ def _api_select_create(start, end, calendar_slug, title, color, description, cre
     response_data["event_id"] = event.id
     return response_data
 
+@drfize
 @require_POST
 @check_calendar_permissions
 def api_delete(request):
@@ -593,6 +612,7 @@ def _api_delete(id, existed, event_id, calendar_slug, user):
 
     return response_data
 
+@drfize
 @require_POST
 @check_calendar_permissions
 def api_set_props(request):
