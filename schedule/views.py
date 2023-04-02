@@ -698,8 +698,12 @@ def _api_set_props(id, existed, event_id, calendar_slug, properties, updater):
         recurrence = decode_recurrence_params(properties)
         print("SET_PROPS RECURRENCE SETTINGS", recurrence_frequency, recurrence_end_recurring_period, recurrence)
         rule = Rule.ensure_rule(frequency=recurrence_frequency, by_details=recurrence)
-        print("RULE", rule)
-        # FIXME: Recreate the recurrence ! What about the weird caching business ?
+        if event.rule.id != rule.id:
+            print("RULE", rule)
+            response_data["recurrence_status"] = "RECREATED"
+            # FIXME: Recreate the recurrence ! What about the weird caching business ?
+            event.rule = rule
+            event.save()
         pass
     response_data["status"] = "OK"
     return response_data
