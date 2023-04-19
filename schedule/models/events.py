@@ -111,7 +111,7 @@ class Event(models.Model):
         index_together = (("start", "end"),)
         constraints = [
             models.CheckConstraint(
-                check = Q(end__gt=F('start')),
+                check = Q(end__ge=F('start')),
                 name = 'check_start_end_date_ordering',
             ),
         ]
