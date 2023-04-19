@@ -12,6 +12,6 @@ class Migration(migrations.Migration):
     operations = [
         migrations.AddConstraint(
             model_name='event',
-            constraint=models.CheckConstraint(check=models.Q(('end__ge', models.F('start'))), name='check_start_end_date_ordering'),
+            constraint=models.CheckConstraint(check=models.Q(('end__gte', models.F('start'))), name='check_start_end_date_ordering'),
         ),
     ]
