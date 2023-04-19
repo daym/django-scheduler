@@ -6,7 +6,7 @@ from django.conf import settings as django_settings
 from django.contrib.contenttypes import fields
 from django.contrib.contenttypes.models import ContentType
 from django.db import models
-from django.db.models import Q
+from django.db.models import Q, F
 from django.template.defaultfilters import date
 from django.urls import reverse
 from django.utils import timezone
@@ -109,6 +109,12 @@ class Event(models.Model):
         verbose_name = _("event")
         verbose_name_plural = _("events")
         index_together = (("start", "end"),)
+        constraints = [
+            models.CheckConstraint(
+                check = Q(end__gt=F('start')),
+                name = 'check_start_end_date_ordering',
+            ),
+        ]
 
     def __str__(self):
         return gettext("%(title)s: %(start)s - %(end)s") % {
