@@ -1,7 +1,7 @@
 from django.contrib import admin
 
-from schedule.forms import EventAdminForm
-from schedule.models import (
+from .forms import EventAdminForm, CalendarForm
+from .models import (
     Calendar,
     CalendarRelation,
     Event,
@@ -17,6 +17,7 @@ class CalendarAdmin(admin.ModelAdmin):
     prepopulated_fields = {"slug": ("name",)}
     search_fields = ["name"]
     fieldsets = ((None, {"fields": [("name", "slug"), "color_event"]}),)
+    form = CalendarForm
 
 
 @admin.register(CalendarRelation)
@@ -67,7 +68,6 @@ class EventAdmin(admin.ModelAdmin):
         ),
     )
     form = EventAdminForm
-
 
 admin.site.register(Occurrence, admin.ModelAdmin)
 
