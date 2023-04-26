@@ -401,7 +401,7 @@ class Event(models.Model):
             ):
                 sp = start_params[param] # the one derived from "start"
                 if sp == rule_params[param] or (
-                    hasattr(rule_params[param], "__iter__") and sp in rule_params[param]
+                    hasattr(rule_params[param], "__iter__") and [sp] == rule_params[param]
                 ): # the start is part of the useful ones
                     event_params[param] = [sp] # Accept ONE of our start param values
                 else:
