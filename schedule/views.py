@@ -503,7 +503,7 @@ def api_move_or_resize_by_code(request):
 
 def _api_move_or_resize_by_code(user, id, existed, delta, resize, event_id):
     import sys
-    print(user, id, existed, delta, resize, event_id, file=sys.stderr)
+    #print(user, id, existed, delta, resize, event_id, file=sys.stderr)
     response_data = {}
     response_data["status"] = "PERMISSION DENIED"
 
@@ -525,7 +525,7 @@ def _api_move_or_resize_by_code(user, id, existed, delta, resize, event_id):
         event.end = event.end + delta
         if CHECK_EVENT_PERM_FUNC(event, user):
             import sys
-            print('save', file=sys.stderr)
+            #print('save', file=sys.stderr)
             event.save()
             event.occurrence_set.all().update(
                 original_start=F("original_start") + dts,
@@ -537,7 +537,7 @@ def _api_move_or_resize_by_code(user, id, existed, delta, resize, event_id):
 def decode_recurrence_params(data):
     recurrence = {}
     for key, values in data.items():
-        print("KV", key, values)
+        #print("KV", key, values)
         if key.startswith("recurrence_by"):
             key = key[len("recurrence_"):]
             if values == "":
@@ -572,7 +572,7 @@ def api_select_create(request):
     recurrence_frequency = request.POST.get("recurrence_frequency")
     recurrence = decode_recurrence_params(request.POST)
 
-    print("RECURRENCE", recurrence)
+    #print("RECURRENCE", recurrence)
     response_data = _api_select_create(start, end, calendar_slug, title, color, description, request.user, recurrence_frequency, recurrence)
 
     return JsonResponse(response_data)
@@ -613,8 +613,10 @@ def _api_delete(id, existed, event_id, calendar_slug, user):
     #calendar = Calendar.objects.get(slug=calendar_slug)
     if existed:
         occurrence = Occurrence.objects.get(id=id)
-        if CHECK_EVENT_PERM_FUNC(occurrence.event, user):
+        event = occurrence.event
+        if CHECK_EVENT_PERM_FUNC(event, user):
             occurrence.delete()
+            event.save()
             response_data["status"] = "OK"
     else:
         event = Event.objects.get(id=event_id)
@@ -696,10 +698,10 @@ def _api_set_props(id, existed, event_id, calendar_slug, properties, updater):
         assert recurrence_frequency
         recurrence_end_recurring_period = properties.get("recurrence_end_recurring_period") or None
         recurrence = decode_recurrence_params(properties)
-        print("SET_PROPS RECURRENCE SETTINGS", recurrence_frequency, recurrence_end_recurring_period, recurrence)
+        #print("SET_PROPS RECURRENCE SETTINGS", recurrence_frequency, recurrence_end_recurring_period, recurrence)
         rule = Rule.ensure_rule(frequency=recurrence_frequency, by_details=recurrence)
         if event.rule.id != rule.id:
-            print("RULE", rule)
+            #print("RULE", rule)
             response_data["recurrence_status"] = "RECREATED"
             # FIXME: Recreate the recurrence ! What about the weird caching business ?
             event.rule = rule
